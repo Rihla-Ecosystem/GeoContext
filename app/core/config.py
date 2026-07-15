@@ -6,6 +6,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "GeoContext"
+    
+    # Environment
+    ENVIRONMENT: str = Field(
+        default="local", 
+        description="Environment name (local, staging, production)",
+    )
 
     # Database connection
     DATABASE_URL: str = Field(
