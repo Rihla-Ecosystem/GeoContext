@@ -1,0 +1,79 @@
+services:
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: geocontext_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: geocontext
+    ports:
+      - "5432:5432"
+    volumes:
+      - geocontext_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geocontext_migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Override the localhost DB URL from .env to use the internal docker network
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/geocontext
+    # Runs the alembic upgrade and then exits (one-shot container)
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geocontext_api
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/geocontext
+      ENVIRONMENT: local
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount local app directory for hot-reloading during development
+      - ./app:/app/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    container_name: geocontext_ingestion
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/geocontext
+    profiles:
+      - ingestion
+    volumes:
+      - ./app:/app/app
+      - ./ingestion:/app/ingestion
+    command: ["python", "-m", "ingestion.main"]
+
+volumes:
+  geocontext_db_data:
