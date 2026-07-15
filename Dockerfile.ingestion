@@ -1,0 +1,38 @@
+# ==========================================
+# Ingestion Pipeline Image
+# ==========================================
+# This image includes heavy spatial libraries (GDAL) required for data ingestion,
+
+FROM python:3.10-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    ENVIRONMENT="production"
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        build-essential \
+        libpq-dev \
+        gdal-bin \
+        libgdal-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal \
+    C_INCLUDE_PATH=/usr/include/gdal
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir -U pip wheel
+
+COPY pyproject.toml README.md ./
+
+COPY app ./app
+COPY ingestion ./ingestion
+
+RUN pip install --no-cache-dir .
+
+CMD ["python", "-m", "ingestion.main"]
