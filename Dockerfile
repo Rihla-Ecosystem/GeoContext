@@ -41,6 +41,8 @@ RUN apt-get update && \
 COPY --from=builder /opt/venv /opt/venv
 
 COPY app ./app
+COPY alembic.ini ./alembic.ini
+COPY migrations ./migrations
 
 EXPOSE 8000
 

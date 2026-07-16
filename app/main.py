@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -8,30 +9,22 @@ from app.core.exceptions import setup_exception_handlers
 from app.core.logging import setup_logging
 from app.core.db import get_db, db_manager
 
-# Initialize structured logging first
 setup_logging()
 logger = structlog.get_logger()
 
-app = FastAPI(title=settings.PROJECT_NAME)
 
-# Register custom exception handlers for consistent JSON errors
-setup_exception_handlers(app)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize resources on application startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("Starting up GeoContext API...")
-    # Initialize the raw asyncpg pool for fast spatial queries
     await db_manager.connect()
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up resources on application shutdown."""
+    yield
     logger.info("Shutting down GeoContext API...")
-    # Close the raw asyncpg pool
     await db_manager.disconnect()
+
+
+app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+
+setup_exception_handlers(app)
 
 
 # ==========================================
