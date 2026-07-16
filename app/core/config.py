@@ -38,8 +38,16 @@ class Settings(BaseSettings):
 
     # Business Logic Defaults
     DEFAULT_DETECTION_RADIUS: float = Field(
+        default=1000.0,
+        description="Default detection radius in meters for nearby sites",
+    )
+    MAX_DETECTION_RADIUS: float = Field(
+        default=5000.0,
+        description="Maximum allowed detection radius in meters",
+    )
+    AT_SITE_RADIUS: float = Field(
         default=50.0,
-        description="Default detection radius in meters for geofencing",
+        description="Radius in meters to consider a user 'at' a site",
     )
 
     model_config = SettingsConfigDict(

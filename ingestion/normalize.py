@@ -2,10 +2,12 @@ from typing import Any
 import re
 from shapely.geometry import shape
 
-def extract_osm_identity(feature_id: Any) -> tuple[str, int]:
+def extract_osm_identity(feature_id: Any, feature: dict) -> tuple[str, int]:
     """Extracts osm_type and osm_id from an overpass-style ID like 'way/12345'."""
     if not feature_id:
-        return "unknown", 0
+        # Fallback to hashing the entire feature string to ensure uniqueness for ID-less features
+        return "unknown", abs(hash(str(feature))) % (10 ** 12)
+    
     if isinstance(feature_id, int):
         return "node", feature_id # Default fallback if just int
     
@@ -21,7 +23,7 @@ def normalize_feature(feature: dict[str, Any], defaults: dict[str, str]) -> dict
     props = feature.get("properties", {})
     
     # Extract identity
-    osm_type, osm_id = extract_osm_identity(feature.get("id"))
+    osm_type, osm_id = extract_osm_identity(feature.get("id"), feature)
     
     # Convert geometry to EWKT for GeoAlchemy2
     geom = shape(feature["geometry"])

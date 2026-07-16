@@ -22,9 +22,25 @@ async def lifespan(app: FastAPI):
     await db_manager.disconnect()
 
 
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+
+from app.api.context import router as context_router
+from app.api.sites import router as sites_router
+from app.api.reports import router as reports_router
+from app.services.rate_limit import limiter
+
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
+# Register SlowAPI rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 setup_exception_handlers(app)
+
+app.include_router(context_router, prefix="/api/v1")
+app.include_router(sites_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
 
 
 # ==========================================
