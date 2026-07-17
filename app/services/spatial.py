@@ -80,8 +80,8 @@ async def get_spatial_context(session: AsyncSession, lat: float, lon: float, rad
             name=site.name,
             name_en=site.name_en,
             name_ar=site.name_ar,
-            category=site.category,
-            description=site.description,
+            categories=site.categories,
+            details=site.details,
             distance_meters=round(distance, 2),
             lat=site_lat,
             lon=site_lon

@@ -11,12 +11,15 @@ from app.services.rate_limit import limiter
 router = APIRouter(prefix="/reports", tags=["Reports"])
 logger = structlog.get_logger()
 
+from app.core.security import get_current_user
+
 @router.post("", response_model=ReportResponse, status_code=201)
 @limiter.limit("5/minute")
 async def submit_report(
     request: Request,
     payload: ReportCreate,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user)
 ):
     """
     Submits a new spatial report.

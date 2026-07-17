@@ -5,8 +5,8 @@ class SiteResult(BaseModel):
     name: str
     name_en: Optional[str] = None
     name_ar: Optional[str] = None
-    category: str
-    description: Optional[str] = None
+    categories: list[str]
+    details: Optional[dict] = None
     distance_meters: float
     lat: float
     lon: float

@@ -7,7 +7,7 @@ import structlog
 from app.core.config import settings
 from app.core.exceptions import setup_exception_handlers
 from app.core.logging import setup_logging
-from app.core.db import get_db, db_manager
+from app.core.db import get_db, db_manager, engine
 
 setup_logging()
 logger = structlog.get_logger()
@@ -24,13 +24,28 @@ async def lifespan(app: FastAPI):
 
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
+from starlette.middleware.sessions import SessionMiddleware
+from sqladmin import Admin
 
 from app.api.context import router as context_router
 from app.api.sites import router as sites_router
 from app.api.reports import router as reports_router
 from app.services.rate_limit import limiter
+from app.admin.auth_backend import authentication_backend
+from app.admin.views import SiteAdmin, BoundaryAdmin, RestrictedZoneAdmin, ReportAdmin, AuditLogAdmin
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+
+# Required for SQLAdmin auth backend
+app.add_middleware(SessionMiddleware, secret_key="geocontext-admin-super-secret-key-replace-in-prod")
+
+# Register SQLAdmin Dashboard
+admin = Admin(app, engine, authentication_backend=authentication_backend)
+admin.add_view(SiteAdmin)
+admin.add_view(BoundaryAdmin)
+admin.add_view(RestrictedZoneAdmin)
+admin.add_view(ReportAdmin)
+admin.add_view(AuditLogAdmin)
 
 # Register SlowAPI rate limiter
 app.state.limiter = limiter

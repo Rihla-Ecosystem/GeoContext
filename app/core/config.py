@@ -18,11 +18,14 @@ class Settings(BaseSettings):
         description="Database connection string (asyncpg)",
     )
 
-    # JWT Authentication
-    JWT_PUBLIC_KEY: str = Field(
-        description="Public key for verifying JWT tokens"
+    # JWT Authentication (HS256 via Supabase User Service)
+    SUPABASE_JWT_SECRET: str = Field(
+        description="Shared secret for verifying JWT tokens from Supabase"
     )
-    JWT_ALGORITHM: str = "RS256"
+    ADMIN_BOOTSTRAP_SECRET: str = Field(
+        default="change-me-in-production",
+        description="Temporary bypass secret for admin panel access"
+    )
 
     # CORS origins
     BACKEND_CORS_ORIGINS: List[str] = Field(

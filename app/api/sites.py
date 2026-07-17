@@ -10,6 +10,8 @@ from app.models.site import Site
 from app.models.boundary import Boundary
 from app.schemas.site import NearbySiteResponse
 
+from app.core.security import get_current_user
+
 router = APIRouter(prefix="/nearby-sites", tags=["Sites"])
 
 @router.get("", response_model=List[NearbySiteResponse])
@@ -18,7 +20,8 @@ async def get_nearby_sites(
     lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude"),
     radius: Optional[float] = Query(None, description="Search radius in meters"),
     category: Optional[str] = Query(None, description="Filter by site category (e.g. archaeological, islamic, christian)"),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user)
 ):
     """
     Finds all sites within a specific radius of a coordinate.
@@ -57,7 +60,7 @@ async def get_nearby_sites(
     )
 
     if category:
-        query = query.where(Site.category == category)
+        query = query.where(Site.categories.contains([category]))
 
     query = query.order_by("distance")
     
@@ -70,9 +73,8 @@ async def get_nearby_sites(
             name=site.name,
             name_en=site.name_en,
             name_ar=site.name_ar,
-            category=site.category,
-            description=site.description,
-            details=site.description,
+            categories=site.categories,
+            details=site.details,
             governorate=gov_name,
             distance_meters=round(distance, 2),
             lat=site_lat,
@@ -86,7 +88,8 @@ async def get_nearby_sites(
 async def get_sites_by_governorate(
     governorate_name: str = Query(..., description="Name of the governorate (e.g., 'Cairo', 'Alexandria')"),
     category: Optional[str] = Query(None, description="Filter by site category"),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user)
 ):
     """
     Finds all sites within a specific Governorate polygon.
@@ -113,7 +116,7 @@ async def get_sites_by_governorate(
     )
     
     if category:
-        query = query.where(Site.category == category)
+        query = query.where(Site.categories.contains([category]))
         
     result = await session.execute(query)
     
@@ -124,9 +127,8 @@ async def get_sites_by_governorate(
             name=site.name,
             name_en=site.name_en,
             name_ar=site.name_ar,
-            category=site.category,
-            description=site.description,
-            details=site.description,
+            categories=site.categories,
+            details=site.details,
             governorate=governorate.name_en,
             distance_meters=0.0, # Not applicable for this endpoint
             lat=site_lat,

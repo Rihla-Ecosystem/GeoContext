@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import text
 from app.models import Boundary, Site, RestrictedZone
 
 MODEL_REGISTRY = {
@@ -32,6 +33,10 @@ async def upsert_features(session: AsyncSession, model_name: str, features: list
         c.name: c for c in stmt.excluded 
         if c.name not in ('id', 'created_at', 'osm_type', 'osm_id')
     }
+    
+    # Merge categories idempotently instead of overwriting
+    if model_name == "Site":
+        update_dict["categories"] = text("ARRAY(SELECT DISTINCT UNNEST(sites.categories || EXCLUDED.categories))")
     
     # Configure the ON CONFLICT DO UPDATE behavior
     if model_name == "RestrictedZone":

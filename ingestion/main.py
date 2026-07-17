@@ -39,28 +39,37 @@ async def run_ingestion():
             for feature in load_geojson_features(filepath):
                 try:
                     normalized = normalize_feature(feature, defaults)
-                    
-                    identity = (normalized["osm_type"], normalized["osm_id"])
-                    if identity in seen_ids:
-                        continue
-                    seen_ids.add(identity)
-                    
-                    batch.append(normalized)
-                    
-                    # Upsert in batches of 500
-                    if len(batch) >= 500:
+                except Exception as e:
+                    logger.error(f"Failed to normalize feature", error=str(e), feature_id=feature.get("id"))
+                    continue
+
+                identity = (normalized["osm_type"], normalized["osm_id"])
+                if identity in seen_ids:
+                    continue
+                seen_ids.add(identity)
+
+                batch.append(normalized)
+
+                # Upsert in batches of 500
+                if len(batch) >= 500:
+                    try:
                         await upsert_features(session, model_name, batch)
                         await session.commit()
                         count += len(batch)
-                        batch = []
-                except Exception as e:
-                    logger.error(f"Failed to normalize feature", error=str(e), feature_id=feature.get("id"))
-            
+                    except Exception as e:
+                        await session.rollback()
+                        logger.error(f"Failed to upsert batch", error=str(e), filename=filename)
+                    batch = []
+
             # Upsert any remaining records
             if batch:
-                await upsert_features(session, model_name, batch)
-                await session.commit()
-                count += len(batch)
+                try:
+                    await upsert_features(session, model_name, batch)
+                    await session.commit()
+                    count += len(batch)
+                except Exception as e:
+                    await session.rollback()
+                    logger.error(f"Failed to upsert final batch", error=str(e), filename=filename)
                 
             if count == 0:
                 logger.warning(f"No valid records processed for {filename}. Is the file empty?")

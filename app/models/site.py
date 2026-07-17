@@ -1,4 +1,5 @@
 from sqlalchemy import String, BigInteger, UniqueConstraint, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from geoalchemy2 import Geometry
 
@@ -15,10 +16,10 @@ class Site(Base, UUIDMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     name_en: Mapped[str | None] = mapped_column(String(255), nullable=True)
     name_ar: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     
     # Classification
-    category: Mapped[str] = mapped_column(String(100), nullable=False, index=True) # archaeological, christian, islamic, hidden_gem
+    categories: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, index=True) # archaeological, christian, islamic, hidden_gem
 
     # Spatial
     geometry = mapped_column(

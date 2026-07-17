@@ -29,10 +29,10 @@ def normalize_feature(feature: dict[str, Any], defaults: dict[str, str]) -> dict
     geom = shape(feature["geometry"])
     ewkt = f"SRID=4326;{geom.wkt}"
     
-    # Extract names
-    name = props.get("name", props.get("name:en", "Unnamed"))
-    name_en = props.get("name:en")
-    name_ar = props.get("name:ar")
+    # Extract names (handle varying key formats across GeoJSON sources)
+    name = props.get("name") or props.get("name:en") or props.get("name_en") or props.get("shapeName") or props.get("name:ar") or "Unnamed"
+    name_en = props.get("name:en") or props.get("name_en") or props.get("name") or None
+    name_ar = props.get("name:ar") or props.get("name_ar") or None
     description = props.get("description", props.get("note", None))
 
     normalized = {
@@ -50,7 +50,7 @@ def normalize_feature(feature: dict[str, Any], defaults: dict[str, str]) -> dict
     elif model_type == "Site":
         normalized["name_en"] = name_en or None
         normalized["name_ar"] = name_ar or None
-        normalized["description"] = description or None
+        normalized["details"] = {"description": description} if description else None
     elif model_type == "RestrictedZone":
         normalized["reason"] = description or None
 
