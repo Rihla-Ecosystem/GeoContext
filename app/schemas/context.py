@@ -11,7 +11,8 @@ class SiteResult(BaseModel):
     lat: float
     lon: float
 
-class ZoneWarning(BaseModel):
+class AreaAdvisory(BaseModel):
+    advisory_type: str  # restricted, protected, caution
     name: Optional[str] = None
     subtype: str
     source: str
@@ -20,6 +21,7 @@ class ZoneWarning(BaseModel):
 class ContextResponse(BaseModel):
     in_egypt: bool
     governorate: Optional[str] = None
-    at_site: Optional[SiteResult] = Field(None, description="The site the user is physically inside or extremely close to.")
-    nearby_sites: List[SiteResult] = Field(default_factory=list, description="Sites within the specified radius.")
-    zone_warnings: List[ZoneWarning] = Field(default_factory=list, description="Restricted zones intersecting the user's location.")
+    at_site: Optional[SiteResult] = Field(None, description="The tourist site the user is physically inside or extremely close to.")
+    nearby_sites: List[SiteResult] = Field(default_factory=list, description="Tourist sites within the specified radius.")
+    nearby_services: List[SiteResult] = Field(default_factory=list, description="Infrastructure/services within the specified radius (police, embassies, etc.).")
+    area_advisories: List[AreaAdvisory] = Field(default_factory=list, description="Restricted zones, protected areas, or caution zones intersecting the user's location.")

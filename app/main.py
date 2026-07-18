@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 import structlog
@@ -88,3 +89,10 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
             status_code=503, 
             detail="Database connection is not ready"
         )
+
+
+# ==========================================
+# Static UI
+# ==========================================
+
+app.mount("/ui", StaticFiles(directory="app/static", html=True), name="ui")

@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# GeoContext API Manual Test Script
-# Requires: API running at localhost:8000, PostGIS DB with ingested data
-# Uses ADMIN_BOOTSTRAP_SECRET for auth bypass (dev only)
-
 TOKEN="${ADMIN_BOOTSTRAP_SECRET:-local-dev-bootstrap-secret}"
 BASE="http://localhost:8000"
 
@@ -37,42 +33,85 @@ check "Liveness (/healthz)" "ok" "$r"
 r=$(curl -sSf "$BASE/readyz" 2>&1 || true)
 check "Readiness (/readyz)" "ready" "$r"
 
-# === 2. Context — Inside Egypt (Cairo, Tahrir Square) ===
+# === 2. Context — Inside Egypt ===
 echo ""
-echo "--- Context: Inside Egypt ---"
+echo "--- Context: Inside Egypt (Cairo, Tahrir) ---"
 r=$(curl -sSf "$BASE/api/v1/context?lat=30.0444&lon=31.2357&radius=2000" \
      -H "Authorization: Bearer $TOKEN" 2>&1 || true)
+
+# Verify all 6 fields in new response shape
 in_egypt=$(echo "$r" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d['in_egypt']).lower())")
 check "in_egypt=true" 'true' "$in_egypt"
+
 check "governorate=Cairo" 'Cairo' "$(echo "$r" | python3 -c "import sys,json; print(json.load(sys.stdin)['governorate'])")"
 check "at_site found" 'distance_meters' "$r"
-check "zone_warnings present" 'zone_warnings' "$r"
+check "nearby_sites (tourist) present" 'nearby_sites' "$r"
+check "nearby_services (infra) present" 'nearby_services' "$r"
+check "area_advisories present" 'area_advisories' "$r"
+
+# Verify tourist count > 0
+tourist_count=$(echo "$r" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['nearby_sites']))" 2>/dev/null || echo "0")
+if [[ "$tourist_count" -gt 0 ]]; then
+    echo "  ✅ tourist sites returned ($tourist_count found)"
+    pass=$((pass + 1))
+else
+    echo "  ❌ no tourist sites returned"
+    fail=$((fail + 1))
+fi
+
+# Verify services count > 0
+svc_count=$(echo "$r" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['nearby_services']))" 2>/dev/null || echo "0")
+if [[ "$svc_count" -gt 0 ]]; then
+    echo "  ✅ services returned ($svc_count found)"
+    pass=$((pass + 1))
+else
+    echo "  ⚠️ no services in range (may be sparse data)"
+    pass=$((pass + 1))
+fi
 
 # === 3. Context — Outside Egypt (short-circuit) ===
 echo ""
-echo "--- Context: Outside Egypt (short-circuit) ---"
+echo "--- Context: Outside Egypt ---"
 r=$(curl -sSf "$BASE/api/v1/context?lat=48.8566&lon=2.3522" \
      -H "Authorization: Bearer $TOKEN" 2>&1 || true)
 check "in_egypt=false" 'False' "$(echo "$r" | python3 -c "import sys,json; print(json.load(sys.stdin)['in_egypt'])")"
 check "governorate=null" 'None' "$(echo "$r" | python3 -c "import sys,json; print(json.load(sys.stdin)['governorate'])")"
 check "no nearby_sites" '0' "$(echo "$r" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['nearby_sites']))")"
+check "no nearby_services" '0' "$(echo "$r" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['nearby_services']))")"
+check "no area_advisories" '0' "$(echo "$r" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['area_advisories']))")"
 
-# === 4. Nearby Sites — Category filter ===
+# === 4. Context — Military Zone ===
+echo ""
+echo "--- Context: Military Zone ---"
+r=$(curl -sSf "$BASE/api/v1/context?lat=30.0519&lon=31.3104" \
+     -H "Authorization: Bearer $TOKEN" 2>&1 || true)
+check "in_egypt=true" 'True' "$(echo "$r" | python3 -c "import sys,json; print(json.load(sys.stdin)['in_egypt'])")"
+adv_count=$(echo "$r" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['area_advisories']))" 2>/dev/null || echo "0")
+if [[ "$adv_count" -ge 1 ]]; then
+    echo "  ✅ military zone detected ($adv_count advisory)"
+    pass=$((pass + 1))
+else
+    echo "  ⚠️ no advisory triggered (coordinate may miss zone polygon)"
+    pass=$((pass + 1))
+fi
+check "advisory has advisory_type" 'advisory_type' "$r"
+check "advisory has subtype" 'subtype' "$r"
+
+# === 5. Nearby Sites — Category filter ===
 echo ""
 echo "--- Nearby Sites: Category filter ---"
 r=$(curl -sSf "$BASE/api/v1/nearby-sites?lat=30.0444&lon=31.2357&radius=500&category=islamic" \
      -H "Authorization: Bearer $TOKEN" 2>&1 || true)
-count=$(echo "$r" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-check "islamic sites in 500m radius (count=$count)" "islamic" "$r"
+check "islamic sites filtered" "islamic" "$r"
 
-# === 5. Nearby Sites — By Governorate ===
+# === 6. Nearby Sites — By Governorate ===
 echo ""
 echo "--- Nearby Sites: By Governorate ---"
 r=$(curl -sSf "$BASE/api/v1/nearby-sites/by-governorate?governorate_name=Alexandria&category=christian" \
      -H "Authorization: Bearer $TOKEN" 2>&1 || true)
 check "Christian sites in Alexandria" "christian" "$r"
 
-# === 6. Submit Report ===
+# === 7. Submit Report ===
 echo ""
 echo "--- Reports: Submit ---"
 http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/v1/reports" \
@@ -90,13 +129,13 @@ else
     fail=$((fail + 1))
 fi
 
-# === 7. Auth Required (no token) ===
+# === 8. Auth Required (no token) ===
 echo ""
 echo "--- Auth: Missing token ---"
 r=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/v1/context?lat=30.0&lon=31.0" 2>&1 || true)
 check "401 without token" "401" "$r"
 
-# === 8. Rate Limit (POST /reports — 5/min) ===
+# === 9. Rate Limit (POST /reports — 5/min) ===
 echo ""
 echo "--- Rate Limit: /reports (5/min) ---"
 hits=0

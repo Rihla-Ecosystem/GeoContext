@@ -19,7 +19,8 @@ class Site(Base, UUIDMixin, TimestampMixin):
     details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     
     # Classification
-    categories: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, index=True) # archaeological, christian, islamic, hidden_gem
+    categories: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, index=True) # archaeological, christian, islamic, hidden_gem, infrastructure
+    site_type: Mapped[str] = mapped_column(String(50), nullable=False, default="tourist", index=True) # tourist, infrastructure
 
     # Spatial
     geometry = mapped_column(

@@ -16,7 +16,8 @@ class RestrictedZone(Base, UUIDMixin, TimestampMixin):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     
     # Classification & Sourcing
-    subtype: Mapped[str] = mapped_column(String(100), nullable=False, index=True) # military, protected, manual_risk, etc.
+    subtype: Mapped[str] = mapped_column(String(100), nullable=False, index=True) # military, protected, manual_risk, informal_settlement, etc.
+    zone_type: Mapped[str] = mapped_column(String(50), nullable=False, default="restricted", index=True) # restricted, protected, caution
     source: Mapped[str] = mapped_column(String(100), nullable=False, index=True)  # osm, manual, etc.
 
     # Spatial

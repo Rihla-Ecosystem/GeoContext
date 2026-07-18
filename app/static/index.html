@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoContext Explorer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+  --text: #f1f5f9; --text2: #94a3b8; --accent: #3b82f6;
+  --green: #22c55e; --red: #ef4444; --orange: #f97316; --yellow: #eab308;
+  --radius: 8px;
+}
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Top Bar */
+.topbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--surface2); flex-shrink: 0; }
+.topbar h1 { font-size: 18px; font-weight: 600; white-space: nowrap; }
+.topbar .spacer { flex: 1; }
+.topbar label { font-size: 13px; color: var(--text2); white-space: nowrap; }
+.topbar input[type="password"] { background: var(--bg); border: 1px solid var(--surface2); color: var(--text); padding: 4px 8px; border-radius: var(--radius); font-size: 13px; width: 200px; }
+.topbar button { padding: 5px 14px; border: none; border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-secondary { background: var(--surface2); color: var(--text); }
+.btn-secondary:hover { background: #475569; }
+.token-status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; }
+
+/* Main layout */
+.main { display: flex; flex: 1; overflow: hidden; }
+.map-panel { flex: 1; position: relative; min-width: 0; }
+#map { width: 100%; height: 100%; }
+.sidebar { width: 380px; flex-shrink: 0; background: var(--surface); display: flex; flex-direction: column; border-left: 1px solid var(--surface2); }
+.sidebar-tabs { display: flex; border-bottom: 1px solid var(--surface2); flex-shrink: 0; }
+.sidebar-tab { flex: 1; padding: 8px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; transition: all .15s; }
+.sidebar-tab:hover { color: var(--text); background: var(--surface2); }
+.sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.sidebar-content { flex: 1; overflow-y: auto; padding: 12px; font-size: 13px; }
+
+/* Results styles */
+.result-section { margin-bottom: 16px; }
+.result-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-green { background: #166534; color: var(--green); }
+.badge-blue { background: #1e3a5f; color: var(--accent); }
+.badge-red { background: #5f1e1e; color: var(--red); }
+.badge-orange { background: #5f3e1e; color: var(--orange); }
+.badge-yellow { background: #5f5e1e; color: var(--yellow); }
+.result-card { background: var(--bg); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--surface2); }
+.result-card .name { font-weight: 500; }
+.result-card .meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.result-card .meta span { margin-right: 10px; }
+.empty-state { color: var(--text2); font-style: italic; padding: 12px 0; text-align: center; }
+.at-site-card { background: #1a3a1a; border: 1px solid #2a5a2a; border-radius: var(--radius); padding: 10px; margin-bottom: 10px; }
+.at-site-card .label { font-size: 11px; color: var(--green); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+.key-value { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--surface2); }
+.key-value:last-child { border-bottom: none; }
+.key-value .key { color: var(--text2); }
+.key-value .val { font-weight: 500; }
+
+/* Controls bar */
+.controls { background: var(--surface); border-top: 1px solid var(--surface2); padding: 10px 16px; flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls-group { display: flex; align-items: center; gap: 6px; }
+.controls label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+.controls input[type="number"] { background: var(--bg); border: 1px solid var(--surface2); color: var(--text); padding: 4px 6px; border-radius: var(--radius); font-size: 13px; width: 80px; }
+.controls input[type="text"] { background: var(--bg); border: 1px solid var(--surface2); color: var(--text); padding: 4px 6px; border-radius: var(--radius); font-size: 13px; width: 120px; }
+.controls select { background: var(--bg); border: 1px solid var(--surface2); color: var(--text); padding: 4px 6px; border-radius: var(--radius); font-size: 13px; }
+.controls .sep { width: 1px; height: 24px; background: var(--surface2); margin: 0 4px; }
+.controls .btn-icon { padding: 5px 10px; font-size: 12px; }
+
+/* Report form */
+.report-form { display: none; }
+.report-form.open { display: block; }
+.report-form-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.report-form-row select, .report-form-row input { flex: 1; min-width: 100px; }
+.report-form textarea { width: 100%; background: var(--bg); border: 1px solid var(--surface2); color: var(--text); padding: 6px 8px; border-radius: var(--radius); font-size: 13px; resize: vertical; min-height: 50px; font-family: inherit; }
+
+/* Map controls overlay */
+.map-overlay { position: absolute; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 4px; }
+.map-overlay button { background: var(--surface); color: var(--text); border: 1px solid var(--surface2); padding: 6px 12px; border-radius: var(--radius); cursor: pointer; font-size: 12px; }
+.map-overlay button:hover { background: var(--surface2); }
+
+@media (max-width: 800px) {
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; height: 40vh; border-left: none; border-top: 1px solid var(--surface2); }
+  .controls { flex-direction: column; align-items: stretch; }
+  .controls-group { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🌍 GeoContext Explorer</h1>
+  <span class="spacer"></span>
+  <label>JWT Token</label>
+  <input type="password" id="tokenInput" placeholder="local-dev-bootstrap-secret" />
+  <span class="token-status" id="tokenStatus"></span>
+  <button class="btn-primary" id="setTokenBtn">Set</button>
+</div>
+
+<div class="main">
+  <div class="map-panel">
+    <div id="map"></div>
+    <div class="map-overlay">
+      <button id="myLocationBtn">📍 My Location</button>
+    </div>
+  </div>
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" data-tab="context">Context</div>
+      <div class="sidebar-tab" data-tab="sites">Sites</div>
+      <div class="sidebar-tab" data-tab="advisories">Advisories</div>
+      <div class="sidebar-tab" data-tab="report">Report</div>
+    </div>
+    <div class="sidebar-content" id="sidebarContent">
+      <div class="empty-state">Click "Get Context" or select a location on the map</div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="controls-group">
+    <label>Lat</label>
+    <input type="number" id="latInput" step="any" value="30.0444" />
+    <label>Lon</label>
+    <input type="number" id="lonInput" step="any" value="31.2357" />
+    <label>Radius</label>
+    <input type="number" id="radiusInput" value="1000" min="1" max="5000" />
+    <span class="sep"></span>
+    <button class="btn-primary btn-icon" id="getContextBtn">🔍 Get Context</button>
+    <button class="btn-secondary btn-icon" id="nearbySitesBtn">📍 Nearby Sites</button>
+  </div>
+  <div class="controls-group">
+    <label>Category</label>
+    <select id="categorySelect">
+      <option value="">All</option>
+      <option value="archaeological">Archaeological</option>
+      <option value="islamic">Islamic</option>
+      <option value="christian">Christian</option>
+      <option value="infrastructure">Infrastructure</option>
+    </select>
+    <label>Gov</label>
+    <input type="text" id="govInput" placeholder="Cairo" list="govList" />
+    <datalist id="govList">
+      <option value="Cairo"><option value="Alexandria"><option value="Giza">
+      <option value="Luxor"><option value="Aswan"><option value="Qena">
+      <option value="Sohag"><option value="Asyut"><option value="Minya">
+      <option value="Beni Suef"><option value="Fayoum"><option value="Sharqia">
+      <option value="Dakahlia"><option value="Damietta"><option value="Port Said">
+      <option value="Ismailia"><option value="Suez"><option value="North Sinai">
+      <option value="South Sinai"><option value="Red Sea"><option value="New Valley">
+      <option value="Matruh"><option value="Beheira"><option value="Kafr El Sheikh">
+      <option value="Gharbia"><option value="Monufia"><option value="Qalyubia">
+      <option value="Helwan"><option value="6 October">
+    </datalist>
+    <button class="btn-secondary btn-icon" id="byGovBtn">🏛️ By Gov</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let token = localStorage.getItem('geocontext_token') || '';
+let currentLat = 30.0444;
+let currentLon = 31.2357;
+let currentRadius = 1000;
+let map, userMarker, radiusCircle;
+let siteMarkers = [];
+let advisoryLayers = [];
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  // Token
+  const tokenInput = document.getElementById('tokenInput');
+  if (token) tokenInput.value = token;
+  updateTokenUI();
+
+  document.getElementById('setTokenBtn').addEventListener('click', setToken);
+  tokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') setToken(); });
+
+  // Map
+  map = L.map('map', { zoomControl: true }).setView([30.0444, 31.2357], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(map);
+
+  map.on('click', e => {
+    document.getElementById('latInput').value = e.latlng.lat.toFixed(6);
+    document.getElementById('lonInput').value = e.latlng.lng.toFixed(6);
+    setUserMarker(e.latlng.lat, e.latlng.lng);
+  });
+
+  // Controls
+  document.getElementById('getContextBtn').addEventListener('click', getContext);
+  document.getElementById('nearbySitesBtn').addEventListener('click', nearbySites);
+  document.getElementById('byGovBtn').addEventListener('click', byGovernorate);
+  document.getElementById('myLocationBtn').addEventListener('click', myLocation);
+
+  // Sidebar tabs
+  document.querySelectorAll('.sidebar-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // Set initial marker
+  setUserMarker(currentLat, currentLon);
+}
+
+function setToken() {
+  const val = document.getElementById('tokenInput').value.trim();
+  token = val;
+  if (val) {
+    localStorage.setItem('geocontext_token', val);
+  } else {
+    localStorage.removeItem('geocontext_token');
+  }
+  updateTokenUI();
+}
+
+function updateTokenUI() {
+  const status = document.getElementById('tokenStatus');
+  if (token) {
+    status.style.background = 'var(--green)';
+    status.title = 'Token set';
+  } else {
+    status.style.background = 'var(--red)';
+    status.title = 'No token';
+  }
+}
+
+function readCoords() {
+  currentLat = parseFloat(document.getElementById('latInput').value) || 30.0444;
+  currentLon = parseFloat(document.getElementById('lonInput').value) || 31.2357;
+  currentRadius = parseInt(document.getElementById('radiusInput').value) || 1000;
+  return { lat: currentLat, lon: currentLon, radius: Math.min(currentRadius, 5000) };
+}
+
+function setUserMarker(lat, lon) {
+  if (userMarker) map.removeLayer(userMarker);
+  userMarker = L.marker([lat, lon], { draggable: true }).addTo(map);
+  userMarker.bindPopup(`<b>Selected Point</b><br>${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+  userMarker.on('dragend', () => {
+    const pos = userMarker.getLatLng();
+    document.getElementById('latInput').value = pos.lat.toFixed(6);
+    document.getElementById('lonInput').value = pos.lng.toFixed(6);
+    currentLat = pos.lat;
+    currentLon = pos.lng;
+  });
+  drawRadiusCircle(lat, lon, currentRadius);
+  map.setView([lat, lon], map.getZoom());
+}
+
+function drawRadiusCircle(lat, lon, radius) {
+  if (radiusCircle) map.removeLayer(radiusCircle);
+  radiusCircle = L.circle([lat, lon], {
+    radius: radius,
+    color: '#3b82f6',
+    fillColor: '#3b82f6',
+    fillOpacity: 0.08,
+    weight: 2,
+    dashArray: '5, 8'
+  }).addTo(map);
+}
+
+// ============================================================
+// API CALL
+// ============================================================
+async function apiCall(method, path, body) {
+  if (!token) { showError('Set a JWT token first'); return null; }
+  try {
+    const opts = {
+      method,
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    if (res.status === 401) { showError('Unauthorized — check your token'); return null; }
+    if (res.status === 429) { showError('Rate limited — wait a moment'); return null; }
+    if (!res.ok) { showError(`HTTP ${res.status}: ${await res.text()}`); return null; }
+    return await res.json();
+  } catch (e) {
+    showError(`Network error: ${e.message}`);
+    return null;
+  }
+}
+
+// ============================================================
+// GET CONTEXT
+// ============================================================
+async function getContext() {
+  const { lat, lon, radius } = readCoords();
+  setUserMarker(lat, lon);
+
+  const data = await apiCall('GET', `/api/v1/context?lat=${lat}&lon=${lon}&radius=${radius}`);
+  if (!data) return;
+
+  clearMapLayers();
+  switchTab('context');
+  renderContext(data);
+  plotContextResults(data);
+}
+
+function renderContext(data) {
+  const el = document.getElementById('sidebarContent');
+  let html = '';
+
+  // Overview
+  html += `<div class="result-section">
+    <h3>📍 Overview</h3>
+    <div class="result-card">
+      <div class="key-value"><span class="key">In Egypt</span><span class="val">${data.in_egypt ? '✅ Yes' : '❌ No'}</span></div>
+      <div class="key-value"><span class="key">Governorate</span><span class="val">${data.governorate || '—'}</span></div>
+    </div>
+  </div>`;
+
+  // At Site
+  if (data.at_site) {
+    html += `<div class="at-site-card">
+      <div class="label">📍 You are here</div>
+      <div class="name" style="margin-top:4px">${escapeHtml(data.at_site.name)}</div>
+      <div class="meta">${data.at_site.distance_meters.toFixed(1)}m · ${(data.at_site.categories || []).join(', ')}</div>
+    </div>`;
+  }
+
+  // Counts
+  html += `<div class="result-section">
+    <h3>📊 Summary</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge badge-blue">${data.nearby_sites.length} Nearby Sites</span>
+      <span class="badge badge-green">${data.nearby_services.length} Services</span>
+      <span class="badge ${data.area_advisories.length > 0 ? 'badge-red' : 'badge-green'}">${data.area_advisories.length} Advisories</span>
+    </div>
+  </div>`;
+
+  el.innerHTML = html;
+  window._contextData = data;
+}
+
+function plotContextResults(data) {
+  // Plot nearby sites (blue)
+  data.nearby_sites.forEach(s => {
+    const m = L.circleMarker([s.lat, s.lon], {
+      radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.7, weight: 2
+    }).addTo(map);
+    m.bindPopup(`<b>${escapeHtml(s.name)}</b><br>${s.distance_meters.toFixed(1)}m · ${(s.categories||[]).join(', ')}`);
+    siteMarkers.push(m);
+  });
+
+  // Plot services (green)
+  data.nearby_services.forEach(s => {
+    const m = L.circleMarker([s.lat, s.lon], {
+      radius: 6, color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.7, weight: 2
+    }).addTo(map);
+    m.bindPopup(`<b>🏛 ${escapeHtml(s.name)}</b><br>${s.distance_meters.toFixed(1)}m`);
+    siteMarkers.push(m);
+  });
+
+  // Plot advisories
+  data.area_advisories.forEach(a => {
+    // We can't plot geometry from context response (no geometry in schema)
+    // Just show a notification
+  });
+}
+
+// ============================================================
+// NEARBY SITES
+// ============================================================
+async function nearbySites() {
+  const { lat, lon, radius } = readCoords();
+  const cat = document.getElementById('categorySelect').value;
+  let path = `/api/v1/nearby-sites?lat=${lat}&lon=${lon}&radius=${radius}`;
+  if (cat) path += `&category=${cat}`;
+
+  const data = await apiCall('GET', path);
+  if (!data) return;
+
+  clearMapLayers();
+  switchTab('sites');
+  renderSiteList(data, 'Nearby Sites');
+  data.forEach(s => {
+    const color = (s.categories || []).includes('infrastructure') ? '#22c55e' : '#3b82f6';
+    const m = L.circleMarker([s.lat, s.lon], {
+      radius: 7, color, fillColor: color, fillOpacity: 0.7, weight: 2
+    }).addTo(map);
+    m.bindPopup(`<b>${escapeHtml(s.name)}</b><br>${s.distance_meters.toFixed(1)}m · ${(s.categories||[]).join(', ')}`);
+    siteMarkers.push(m);
+  });
+}
+
+// ============================================================
+// BY GOVERNORATE
+// ============================================================
+async function byGovernorate() {
+  const gov = document.getElementById('govInput').value.trim();
+  if (!gov) { showError('Enter a governorate name'); return; }
+  const cat = document.getElementById('categorySelect').value;
+  let path = `/api/v1/nearby-sites/by-governorate?governorate_name=${encodeURIComponent(gov)}`;
+  if (cat) path += `&category=${cat}`;
+
+  const data = await apiCall('GET', path);
+  if (!data) return;
+
+  clearMapLayers();
+  switchTab('sites');
+  renderSiteList(data, `${gov} — Sites`);
+  data.forEach(s => {
+    const color = (s.categories || []).includes('infrastructure') ? '#22c55e' : '#3b82f6';
+    const m = L.circleMarker([s.lat, s.lon], {
+      radius: 7, color, fillColor: color, fillOpacity: 0.7, weight: 2
+    }).addTo(map);
+    m.bindPopup(`<b>${escapeHtml(s.name)}</b><br>${(s.categories||[]).join(', ')}`);
+    siteMarkers.push(m);
+  });
+}
+
+function renderSiteList(sites, title) {
+  const el = document.getElementById('sidebarContent');
+  if (!sites || sites.length === 0) {
+    el.innerHTML = `<div class="empty-state">No sites found</div>`;
+    return;
+  }
+  let html = `<div class="result-section"><h3>${title} <span class="badge badge-blue">${sites.length}</span></h3>`;
+  sites.forEach(s => {
+    const name = s.name && s.name !== 'Unnamed' ? escapeHtml(s.name) : '<em>Unnamed</em>';
+    html += `<div class="result-card">
+      <div class="name">${name}</div>
+      <div class="meta">
+        <span>📍 ${s.distance_meters.toFixed(1)}m</span>
+        <span>🏷 ${(s.categories||[]).join(', ')}</span>
+        ${s.governorate ? `<span>🏛 ${escapeHtml(s.governorate)}</span>` : ''}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ============================================================
+// MY LOCATION
+// ============================================================
+function myLocation() {
+  if (!navigator.geolocation) { showError('Geolocation not supported'); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      document.getElementById('latInput').value = latitude.toFixed(6);
+      document.getElementById('lonInput').value = longitude.toFixed(6);
+      setUserMarker(latitude, longitude);
+      getContext();
+    },
+    err => showError(`Geolocation error: ${err.message}`),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// ============================================================
+// SIDEBAR TABS
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const el = document.getElementById('sidebarContent');
+
+  if (tab === 'context') {
+    if (window._contextData) renderContext(window._contextData);
+    else el.innerHTML = `<div class="empty-state">Click "Get Context" to see results</div>`;
+  } else if (tab === 'sites') {
+    el.innerHTML = `<div class="empty-state">Use "Nearby Sites" or "By Gov" to explore</div>`;
+  } else if (tab === 'advisories') {
+    renderAdvisories();
+  } else if (tab === 'report') {
+    renderReportForm();
+  }
+}
+
+function renderAdvisories() {
+  const el = document.getElementById('sidebarContent');
+  const data = window._contextData;
+  if (!data || !data.area_advisories || data.area_advisories.length === 0) {
+    el.innerHTML = `<div class="empty-state">No advisories in current context</div>`;
+    return;
+  }
+  let html = `<div class="result-section"><h3>🚫 Area Advisories</h3>`;
+  data.area_advisories.forEach(a => {
+    const badgeClass = a.advisory_type === 'restricted' ? 'badge-red' : a.advisory_type === 'protected' ? 'badge-orange' : 'badge-yellow';
+    html += `<div class="result-card">
+      <div><span class="badge ${badgeClass}">${a.advisory_type}</span> <span class="name">${escapeHtml(a.name || 'Unnamed')}</span></div>
+      <div class="meta">
+        ${a.subtype ? `<span>Type: ${escapeHtml(a.subtype)}</span>` : ''}
+        ${a.source ? `<span>Source: ${escapeHtml(a.source)}</span>` : ''}
+        ${a.reason ? `<span>Reason: ${escapeHtml(a.reason)}</span>` : ''}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderReportForm() {
+  const el = document.getElementById('sidebarContent');
+  el.innerHTML = `
+    <div class="result-section">
+      <h3>📝 Submit Report</h3>
+      <div class="report-form open">
+        <div class="report-form-row">
+          <select id="reportType">
+            <option value="hazard">Hazard</option>
+            <option value="inaccuracy">Inaccuracy</option>
+            <option value="missing_data">Missing Data</option>
+          </select>
+          <select id="reportSeverity">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <textarea id="reportDesc" placeholder="Describe the issue..."></textarea>
+        <div class="report-form-row" style="margin-top:8px">
+          <input type="number" id="reportLat" step="any" placeholder="Lat" value="${currentLat.toFixed(4)}" />
+          <input type="number" id="reportLon" step="any" placeholder="Lon" value="${currentLon.toFixed(4)}" />
+        </div>
+        <button class="btn-primary" id="submitReportBtn" style="margin-top:8px;width:100%">Submit Report</button>
+        <div id="reportResult" style="margin-top:8px"></div>
+      </div>
+    </div>
+  `;
+  document.getElementById('submitReportBtn').addEventListener('click', submitReport);
+}
+
+async function submitReport() {
+  const body = {
+    report_type: document.getElementById('reportType').value,
+    severity: document.getElementById('reportSeverity').value,
+    description: document.getElementById('reportDesc').value.trim(),
+    lat: parseFloat(document.getElementById('reportLat').value),
+    lon: parseFloat(document.getElementById('reportLon').value),
+  };
+  if (!body.description) { document.getElementById('reportResult').innerHTML = '<span style="color:var(--red)">Description is required</span>'; return; }
+  const data = await apiCall('POST', '/api/v1/reports', body);
+  const el = document.getElementById('reportResult');
+  if (data) {
+    el.innerHTML = `<span style="color:var(--green)">✅ Report submitted (${data.id.slice(0,8)}…) — status: ${data.status}</span>`;
+    document.getElementById('reportDesc').value = '';
+  } else {
+    el.innerHTML = `<span style="color:var(--red)">❌ Failed to submit report</span>`;
+  }
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function clearMapLayers() {
+  siteMarkers.forEach(m => map.removeLayer(m));
+  siteMarkers = [];
+  advisoryLayers.forEach(l => map.removeLayer(l));
+  advisoryLayers = [];
+}
+
+function showError(msg) {
+  const el = document.getElementById('sidebarContent');
+  el.innerHTML = `<div style="color:var(--red);padding:12px;background:#2a1a1a;border-radius:var(--radius);border:1px solid #5f1e1e">❌ ${escapeHtml(msg)}</div>`;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ============================================================
+// GO
+// ============================================================
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
