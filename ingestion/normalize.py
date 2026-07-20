@@ -1,22 +1,24 @@
+import hashlib
 from typing import Any
 import re
 from shapely.geometry import shape
 
+def _stable_hash(s: str) -> int:
+    return int(hashlib.md5(s.encode()).hexdigest()[:12], 16)
+
 def extract_osm_identity(feature_id: Any, feature: dict) -> tuple[str, int]:
     """Extracts osm_type and osm_id from an overpass-style ID like 'way/12345'."""
     if not feature_id:
-        # Fallback to hashing the entire feature string to ensure uniqueness for ID-less features
-        return "unknown", abs(hash(str(feature))) % (10 ** 12)
+        return "unknown", _stable_hash(str(feature))
     
     if isinstance(feature_id, int):
-        return "node", feature_id # Default fallback if just int
+        return "node", feature_id
     
     match = re.match(r"(node|way|relation)/(\d+)", str(feature_id))
     if match:
         return match.group(1), int(match.group(2))
     
-    # Fallback for unexpected string IDs to ensure integer osm_id
-    return "unknown", abs(hash(str(feature_id))) % (10 ** 12)
+    return "unknown", _stable_hash(str(feature_id))
 
 def normalize_feature(feature: dict[str, Any], defaults: dict[str, str]) -> dict[str, Any]:
     """Converts a raw GeoJSON feature into a dict ready for SQLAlchemy ingestion."""

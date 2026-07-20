@@ -41,7 +41,7 @@ services:
       db:
         condition: service_healthy
       migrate:
-        condition: service_started
+        condition: service_completed_successfully
     env_file:
       - .env
     environment:
@@ -53,8 +53,7 @@ services:
       # Mount local app directory for hot-reloading during development
       - ./app:/app/app
     healthcheck:
-      # Use python urllib to ping the readiness endpoint so we don't need to install curl in the slim image
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request as u; assert u.urlopen('http://localhost:8000/readyz').status == 200\""]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -70,7 +69,7 @@ services:
       db:
         condition: service_healthy
       migrate:
-        condition: service_started
+        condition: service_completed_successfully
     env_file:
       - .env
     environment:

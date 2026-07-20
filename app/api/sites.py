@@ -66,8 +66,12 @@ async def get_nearby_sites(
     
     result = await session.execute(query)
     
+    seen = set()
     response = []
     for site, distance, site_lat, site_lon, gov_name in result:
+        if site.id in seen:
+            continue
+        seen.add(site.id)
         response.append(NearbySiteResponse(
             id=site.id,
             name=site.name,
@@ -94,7 +98,6 @@ async def get_sites_by_governorate(
     """
     Finds all sites within a specific Governorate polygon.
     """
-    # 1. First, find the governorate polygon by name
     gov_query = select(Boundary).where(
         Boundary.level == 'governorate',
         func.lower(Boundary.name_en).like(f"%{governorate_name.lower()}%")

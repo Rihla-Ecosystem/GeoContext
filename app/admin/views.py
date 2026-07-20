@@ -32,8 +32,7 @@ class AuditedModelView(ModelView):
         )
         
         self.session.add(log_entry)
-        # Commit happens automatically in sqladmin after these hooks, 
-        # but just in case we can just add it to the session and let the framework commit it.
+        await self.session.flush()
 
     async def on_model_change(self, data: dict, model: object, is_created: bool, request: Request) -> None:
         action = "create" if is_created else "update"

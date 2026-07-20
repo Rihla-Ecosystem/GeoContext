@@ -1,4 +1,4 @@
-from sqlalchemy import String, BigInteger, UniqueConstraint, Text
+from sqlalchemy import String, BigInteger, UniqueConstraint, Text, Index
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from geoalchemy2 import Geometry
@@ -19,7 +19,7 @@ class Site(Base, UUIDMixin, TimestampMixin):
     details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     
     # Classification
-    categories: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, index=True) # archaeological, christian, islamic, hidden_gem, infrastructure
+    categories: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False) # archaeological, christian, islamic, hidden_gem, infrastructure
     site_type: Mapped[str] = mapped_column(String(50), nullable=False, default="tourist", index=True) # tourist, infrastructure
 
     # Spatial
@@ -30,4 +30,5 @@ class Site(Base, UUIDMixin, TimestampMixin):
 
     __table_args__ = (
         UniqueConstraint("osm_type", "osm_id", name="uq_site_osm_identity"),
+        Index("ix_sites_categories_gin", "categories", postgresql_using="gin"),
     )
