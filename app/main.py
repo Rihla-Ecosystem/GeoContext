@@ -29,11 +29,12 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqladmin import Admin
 
 from app.api.context import router as context_router
-from app.api.sites import router as sites_router
-from app.api.reports import router as reports_router
+from app.api.sites import router as sites_router, admin_router as sites_admin_router
+from app.api.boundaries import router as boundaries_router
+from app.api.restricted_zones import router as restricted_zones_router
 from app.services.rate_limit import limiter
 from app.admin.auth_backend import authentication_backend
-from app.admin.views import SiteAdmin, BoundaryAdmin, RestrictedZoneAdmin, ReportAdmin, AuditLogAdmin
+from app.admin.views import SiteAdmin, BoundaryAdmin, RestrictedZoneAdmin, AuditLogAdmin
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
@@ -45,7 +46,6 @@ admin = Admin(app, engine, authentication_backend=authentication_backend)
 admin.add_view(SiteAdmin)
 admin.add_view(BoundaryAdmin)
 admin.add_view(RestrictedZoneAdmin)
-admin.add_view(ReportAdmin)
 admin.add_view(AuditLogAdmin)
 
 # Register SlowAPI rate limiter
@@ -56,7 +56,9 @@ setup_exception_handlers(app)
 
 app.include_router(context_router, prefix="/api/v1")
 app.include_router(sites_router, prefix="/api/v1")
-app.include_router(reports_router, prefix="/api/v1")
+app.include_router(sites_admin_router, prefix="/api/v1")
+app.include_router(boundaries_router, prefix="/api/v1")
+app.include_router(restricted_zones_router, prefix="/api/v1")
 
 
 # ==========================================

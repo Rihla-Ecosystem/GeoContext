@@ -4,7 +4,6 @@ from fastapi import Request
 from app.models.site import Site
 from app.models.boundary import Boundary
 from app.models.restricted_zone import RestrictedZone
-from app.models.report import Report
 from app.models.audit_log import AuditLog
 
 from app.core.security import verify_token
@@ -57,11 +56,6 @@ class BoundaryAdmin(AuditedModelView, model=Boundary):
 class RestrictedZoneAdmin(AuditedModelView, model=RestrictedZone):
     column_list = [RestrictedZone.id, RestrictedZone.name, RestrictedZone.subtype, RestrictedZone.source]
     icon = "fa-solid fa-ban"
-
-class ReportAdmin(AuditedModelView, model=Report):
-    column_list = [Report.id, Report.report_type, Report.status, Report.severity, Report.created_at]
-    column_searchable_list = [Report.status, Report.report_type]
-    icon = "fa-solid fa-flag"
 
 class AuditLogAdmin(ModelView, model=AuditLog):
     column_list = [AuditLog.id, AuditLog.target_type, AuditLog.action, AuditLog.admin_identifier, AuditLog.created_at]

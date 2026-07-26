@@ -21,15 +21,15 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: geocontext_migrate
+    profiles:
+      - migrate
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - .env
     environment:
-      # Override the localhost DB URL from .env to use the internal docker network
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/geocontext
-    # Runs the alembic upgrade and then exits (one-shot container)
     command: ["alembic", "upgrade", "head"]
 
   api:
@@ -40,8 +40,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     env_file:
       - .env
     environment:
@@ -68,8 +66,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     env_file:
       - .env
     environment:
