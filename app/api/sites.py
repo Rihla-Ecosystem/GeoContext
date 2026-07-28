@@ -10,7 +10,7 @@ from app.core.db import get_db
 from app.models.site import Site
 from app.models.boundary import Boundary
 from app.schemas.site import NearbySiteResponse, SiteCreate, SiteUpdate, SiteResponse
-from app.core.security import get_current_user, require_admin
+from app.core.security import allow_access, require_admin
 
 logger = structlog.get_logger()
 
@@ -25,7 +25,7 @@ async def get_nearby_sites(
     radius: Optional[float] = Query(None, description="Search radius in meters"),
     category: Optional[str] = Query(None, description="Filter by site category (e.g. archaeological, islamic, christian)"),
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(allow_access)
 ):
     effective_radius = radius if radius is not None else settings.DEFAULT_DETECTION_RADIUS
     effective_radius = min(effective_radius, settings.MAX_DETECTION_RADIUS)
@@ -92,7 +92,7 @@ async def get_sites_by_governorate(
     governorate_name: str = Query(..., description="Name of the governorate (e.g., 'Cairo', 'Alexandria')"),
     category: Optional[str] = Query(None, description="Filter by site category"),
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(allow_access)
 ):
     gov_query = select(Boundary).where(
         Boundary.level == 'governorate',
@@ -140,7 +140,7 @@ async def get_sites_by_governorate(
 async def list_sites(
     site_type: str | None = None,
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(allow_access)
 ):
     query = select(
         Site,
@@ -175,7 +175,7 @@ async def list_sites(
 async def get_site(
     site_id: str,
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(allow_access)
 ):
     query = select(
         Site,

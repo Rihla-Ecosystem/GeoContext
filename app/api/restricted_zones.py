@@ -8,7 +8,7 @@ from shapely.geometry import shape
 from app.core.db import get_db
 from app.models.restricted_zone import RestrictedZone
 from app.schemas.restricted_zone import RestrictedZoneCreate, RestrictedZoneUpdate, RestrictedZoneResponse
-from app.core.security import require_admin
+from app.core.security import allow_access, require_admin
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/restricted-zones", tags=["Restricted Zones"])
@@ -18,7 +18,8 @@ router = APIRouter(prefix="/restricted-zones", tags=["Restricted Zones"])
 async def list_restricted_zones(
     zone_type: str | None = None,
     subtype: str | None = None,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(allow_access)
 ):
     query = select(RestrictedZone)
     if zone_type:
@@ -33,7 +34,8 @@ async def list_restricted_zones(
 @router.get("/{zone_id}", response_model=RestrictedZoneResponse)
 async def get_restricted_zone(
     zone_id: str,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(allow_access)
 ):
     result = await session.execute(select(RestrictedZone).where(RestrictedZone.id == zone_id))
     zone = result.scalars().first()

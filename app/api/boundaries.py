@@ -8,7 +8,7 @@ from shapely.geometry import shape
 from app.core.db import get_db
 from app.models.boundary import Boundary
 from app.schemas.boundary import BoundaryCreate, BoundaryUpdate, BoundaryResponse
-from app.core.security import require_admin
+from app.core.security import allow_access, require_admin
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/boundaries", tags=["Boundaries"])
@@ -17,7 +17,8 @@ router = APIRouter(prefix="/boundaries", tags=["Boundaries"])
 @router.get("", response_model=List[BoundaryResponse])
 async def list_boundaries(
     level: str | None = None,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(allow_access)
 ):
     query = select(Boundary)
     if level:
@@ -30,7 +31,8 @@ async def list_boundaries(
 @router.get("/{boundary_id}", response_model=BoundaryResponse)
 async def get_boundary(
     boundary_id: str,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(allow_access)
 ):
     result = await session.execute(select(Boundary).where(Boundary.id == boundary_id))
     boundary = result.scalars().first()

@@ -8,7 +8,7 @@ from app.core.db import get_db
 from app.schemas.context import ContextResponse
 from app.services.spatial import get_spatial_context
 
-from app.core.security import get_current_user
+from app.core.security import allow_access
 
 router = APIRouter(prefix="/context", tags=["Context"])
 
@@ -18,7 +18,7 @@ async def fetch_spatial_context(
     lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude of the location"),
     radius: Optional[float] = Query(None, description="Detection radius in meters for nearby sites"),
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(allow_access)
 ):
     """
     Given a lat/lon coordinate, return the comprehensive spatial context including:

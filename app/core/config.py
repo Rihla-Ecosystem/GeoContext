@@ -18,9 +18,13 @@ class Settings(BaseSettings):
         description="Database connection string (asyncpg)",
     )
 
-    # JWT Authentication (HS256 via Supabase User Service)
-    SUPABASE_JWT_SECRET: str = Field(
-        description="Shared secret for verifying JWT tokens from Supabase"
+    # JWT Authentication (HS256 — shared secret with Core-Server)
+    JWT_ACCESS_SECRET: str = Field(
+        description="Shared JWT secret for verifying tokens issued by Core-Server"
+    )
+    INTERNAL_API_KEY: str = Field(
+        default="",
+        description="Internal API key for Core-Server gateway calls (X-Internal-Api-Key header)"
     )
     ADMIN_BOOTSTRAP_SECRET: str = Field(
         default="change-me-in-production",
