@@ -200,7 +200,12 @@ Submit a public safety/data-correction report. Rate-limited to 5/minute/IP. Alwa
 
 ### Admin Panel
 
-Access at `http://localhost:8000/admin`. Login uses the JWT token (paste it in the "Password" field).
+Access at `http://localhost:8000/admin`. Login options, in order:
+
+1. **App-admin account**: any Core-Server user with role `admin` — use their email + password. GeoContext verifies against Core via `POST /api/internal/verify-admin-login` using `CORE_SERVER_URL` + `INTERNAL_API_KEY`. Dev account: `admin@test.com` / `RihlaAdmin2026!` (temporary — change after first login).
+2. Dashboard credentials: `ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults: `admin` / `Admin123!`, override in `.env`).
+3. The `ADMIN_BOOTSTRAP_SECRET` value as the password (dev bypass).
+4. A valid admin JWT pasted into the password field (legacy compatibility).
 
 | View | Model | Notes |
 |------|-------|-------|

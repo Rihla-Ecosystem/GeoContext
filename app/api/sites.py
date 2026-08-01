@@ -24,6 +24,7 @@ async def get_nearby_sites(
     lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude"),
     radius: Optional[float] = Query(None, description="Search radius in meters"),
     category: Optional[str] = Query(None, description="Filter by site category (e.g. archaeological, islamic, christian)"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max results"),
     session: AsyncSession = Depends(get_db),
     user: dict = Depends(allow_access)
 ):
@@ -63,6 +64,9 @@ async def get_nearby_sites(
 
     query = query.order_by("distance")
 
+    if limit:
+        query = query.limit(limit)
+
     result = await session.execute(query)
 
     seen = set()
@@ -91,6 +95,7 @@ async def get_nearby_sites(
 async def get_sites_by_governorate(
     governorate_name: str = Query(..., description="Name of the governorate (e.g., 'Cairo', 'Alexandria')"),
     category: Optional[str] = Query(None, description="Filter by site category"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max results"),
     session: AsyncSession = Depends(get_db),
     user: dict = Depends(allow_access)
 ):
@@ -115,6 +120,9 @@ async def get_sites_by_governorate(
 
     if category:
         query = query.where(Site.categories.contains([category]))
+
+    if limit:
+        query = query.limit(limit)
 
     result = await session.execute(query)
 

@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 import structlog
-from shapely.geometry import shape
+from shapely.geometry import shape, mapping
+from shapely import wkb
 
 from app.core.db import get_db
 from app.models.boundary import Boundary
@@ -12,6 +13,32 @@ from app.core.security import allow_access, require_admin
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/boundaries", tags=["Boundaries"])
+
+
+def _geometry_to_geojson(geometry) -> dict | None:
+    if geometry is None:
+        return None
+    try:
+        geom = wkb.loads(bytes(geometry.data))
+    except Exception:
+        try:
+            geom = shape(geometry)
+        except Exception:
+            return None
+    return mapping(geom)
+
+
+def _to_response(boundary: Boundary) -> BoundaryResponse:
+    return BoundaryResponse(
+        id=boundary.id,
+        osm_type=boundary.osm_type,
+        osm_id=boundary.osm_id,
+        name=boundary.name,
+        name_en=boundary.name_en,
+        name_ar=boundary.name_ar,
+        level=boundary.level,
+        geometry=_geometry_to_geojson(boundary.geometry),
+    )
 
 
 @router.get("", response_model=List[BoundaryResponse])
@@ -25,7 +52,7 @@ async def list_boundaries(
         query = query.where(Boundary.level == level)
     query = query.order_by(Boundary.name)
     result = await session.execute(query)
-    return result.scalars().all()
+    return [_to_response(b) for b in result.scalars().all()]
 
 
 @router.get("/{boundary_id}", response_model=BoundaryResponse)
@@ -38,7 +65,7 @@ async def get_boundary(
     boundary = result.scalars().first()
     if not boundary:
         raise HTTPException(status_code=404, detail="Boundary not found")
-    return boundary
+    return _to_response(boundary)
 
 
 @router.post("", response_model=BoundaryResponse, status_code=201)
@@ -63,7 +90,7 @@ async def create_boundary(
     await session.commit()
     await session.refresh(boundary)
     logger.info("Boundary created", id=str(boundary.id), name=boundary.name)
-    return boundary
+    return _to_response(boundary)
 
 
 @router.put("/{boundary_id}", response_model=BoundaryResponse)
@@ -89,7 +116,7 @@ async def update_boundary(
     await session.commit()
     await session.refresh(boundary)
     logger.info("Boundary updated", id=str(boundary.id))
-    return boundary
+    return _to_response(boundary)
 
 
 @router.delete("/{boundary_id}", status_code=204)

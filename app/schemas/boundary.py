@@ -30,5 +30,6 @@ class BoundaryResponse(BaseModel):
     name_en: Optional[str] = None
     name_ar: Optional[str] = None
     level: str
+    geometry: Optional[dict] = Field(default=None, description="GeoJSON geometry (Polygon/MultiPolygon)")
 
     model_config = {"from_attributes": True}

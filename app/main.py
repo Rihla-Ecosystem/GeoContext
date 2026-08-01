@@ -26,17 +26,32 @@ async def lifespan(app: FastAPI):
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from starlette.middleware.sessions import SessionMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin
 
 from app.api.context import router as context_router
 from app.api.sites import router as sites_router, admin_router as sites_admin_router
 from app.api.boundaries import router as boundaries_router
+from app.api.search import router as search_router
 from app.api.restricted_zones import router as restricted_zones_router
+from app.api.health import router as health_router
 from app.services.rate_limit import limiter
 from app.admin.auth_backend import authentication_backend
 from app.admin.views import SiteAdmin, BoundaryAdmin, RestrictedZoneAdmin, AuditLogAdmin
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3050",
+    ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Required for SQLAdmin auth backend
 app.add_middleware(SessionMiddleware, secret_key="geocontext-admin-super-secret-key-replace-in-prod")
@@ -58,7 +73,9 @@ app.include_router(context_router, prefix="/api/v1")
 app.include_router(sites_router, prefix="/api/v1")
 app.include_router(sites_admin_router, prefix="/api/v1")
 app.include_router(boundaries_router, prefix="/api/v1")
+app.include_router(search_router, prefix="/api/v1")
 app.include_router(restricted_zones_router, prefix="/api/v1")
+app.include_router(health_router, prefix="/api/v1")
 
 
 # ==========================================

@@ -10,14 +10,15 @@ from app.core.security import verify_token
 
 class AuditedModelView(ModelView):
     async def log_action(self, request: Request, action: str, model_instance, details: dict = None):
-        token = request.session.get("token")
-        admin_id = "unknown"
-        if token:
-            try:
-                payload = verify_token(token)
-                admin_id = payload.get("sub", "unknown")
-            except Exception:
-                pass
+        admin_id = request.session.get("admin_id") or "unknown"
+        if admin_id == "unknown":
+            token = request.session.get("token")
+            if token:
+                try:
+                    payload = verify_token(token)
+                    admin_id = payload.get("sub", "unknown")
+                except Exception:
+                    pass
                 
         target_id = str(getattr(model_instance, "id", "unknown"))
         target_type = model_instance.__tablename__
