@@ -45,8 +45,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/geocontext
       ENVIRONMENT: local
-      INTERNAL_API_KEY: 8f7d3c1a9b2e4f6d8a0c3e5f7b9d1a2c
-      JWT_ACCESS_SECRET: cmhfdhfrybh8474bhJDHQQHHHJHhjhHUGFyJfjw83h4928&@&bedbnfbndeheh
+
+
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      ADMIN_BOOTSTRAP_SECRET: ${ADMIN_BOOTSTRAP_SECRET}
+
     ports:
       - "8000:8000"
     volumes:

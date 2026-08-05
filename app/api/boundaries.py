@@ -4,7 +4,8 @@ from sqlalchemy import select, func, cast
 from geoalchemy2 import Geography
 from typing import List, Optional
 import structlog
-from shapely.geometry import shape
+from shapely.geometry import shape, mapping
+from shapely import wkb
 
 from app.core.db import get_db
 from app.models.boundary import Boundary
@@ -42,6 +43,32 @@ def _row_to_response(boundary: Boundary, geojson: Optional[str]) -> BoundaryResp
     )
 
 
+def _geometry_to_geojson(geometry) -> dict | None:
+    if geometry is None:
+        return None
+    try:
+        geom = wkb.loads(bytes(geometry.data))
+    except Exception:
+        try:
+            geom = shape(geometry)
+        except Exception:
+            return None
+    return mapping(geom)
+
+
+def _to_response(boundary: Boundary) -> BoundaryResponse:
+    return BoundaryResponse(
+        id=boundary.id,
+        osm_type=boundary.osm_type,
+        osm_id=boundary.osm_id,
+        name=boundary.name,
+        name_en=boundary.name_en,
+        name_ar=boundary.name_ar,
+        level=boundary.level,
+        geometry=_geometry_to_geojson(boundary.geometry),
+    )
+
+
 @router.get("", response_model=List[BoundaryResponse])
 async def list_boundaries(
     level: Optional[str] = Query(None),
@@ -50,10 +77,12 @@ async def list_boundaries(
 ):
     stmt = _geojson_select
     if level:
+
         stmt = stmt.where(Boundary.level == level)
     stmt = stmt.order_by(Boundary.name)
     result = await session.execute(stmt)
     return [_row_to_response(b, g) for b, g in result.all()]
+
 
 
 @router.get("/{boundary_id}", response_model=BoundaryResponse)
@@ -66,8 +95,10 @@ async def get_boundary(
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Boundary not found")
+
     boundary, geojson = row
     return _row_to_response(boundary, geojson)
+
 
 
 @router.post("", response_model=BoundaryResponse, status_code=201)
@@ -125,11 +156,13 @@ async def update_boundary(
     await session.refresh(boundary)
     logger.info("Boundary updated", id=str(boundary.id))
 
+
     result = await session.execute(
         select(func.ST_AsGeoJSON(Boundary.geometry).label("g")).where(Boundary.id == boundary_id)
     )
     geojson_str = result.scalar()
     return _row_to_response(boundary, geojson_str)
+
 
 
 @router.delete("/{boundary_id}", status_code=204)

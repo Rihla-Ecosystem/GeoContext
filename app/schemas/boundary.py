@@ -44,6 +44,7 @@ class BoundaryResponse(BaseModel):
     name_en: Optional[str] = None
     name_ar: Optional[str] = None
     level: str
+
     geometry_geojson: Optional[dict] = Field(None, alias="geometry_geojson")
     created_at: Optional[datetime] = Field(None, alias="created_at")
     updated_at: Optional[datetime] = Field(None, alias="updated_at")

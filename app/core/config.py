@@ -26,9 +26,23 @@ class Settings(BaseSettings):
         default="",
         description="Internal API key for Core-Server gateway calls (X-Internal-Api-Key header)"
     )
+    CORE_SERVER_URL: str = Field(
+        default="http://localhost:3000",
+        description="Base URL of the Core-Server (used for admin credential verification)"
+    )
     ADMIN_BOOTSTRAP_SECRET: str = Field(
         default="change-me-in-production",
         description="Temporary bypass secret for admin panel access"
+    )
+
+    # SQLAdmin dashboard credentials
+    ADMIN_USERNAME: str = Field(
+        default="admin",
+        description="Username for the SQLAdmin dashboard login"
+    )
+    ADMIN_PASSWORD: str = Field(
+        default="Admin123!",
+        description="Password for the SQLAdmin dashboard login"
     )
 
     # CORS origins
