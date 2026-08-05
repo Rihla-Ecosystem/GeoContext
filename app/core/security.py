@@ -42,6 +42,9 @@ async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
+    # Service-to-service: internal gateway via X-Internal-Api-Key
+    if verify_internal_api_key(request):
+        return {"sub": "internal-gateway", "role": "admin", "source": "internal"}
     if credentials:
         return verify_token(credentials.credentials)
     raise HTTPException(status_code=401, detail="Authentication required")

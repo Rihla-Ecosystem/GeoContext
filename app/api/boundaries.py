@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List
+from sqlalchemy import select, func, cast
+from geoalchemy2 import Geography
+from typing import List, Optional
 import structlog
 from shapely.geometry import shape
 
@@ -13,39 +14,67 @@ from app.core.security import allow_access, require_admin
 logger = structlog.get_logger()
 router = APIRouter(prefix="/boundaries", tags=["Boundaries"])
 
+_geojson_select = select(
+    Boundary,
+    func.ST_AsGeoJSON(Boundary.geometry).label("geometry_geojson"),
+)
+
+
+def _row_to_response(boundary: Boundary, geojson: Optional[str]) -> BoundaryResponse:
+    geom = None
+    if geojson:
+        import json as _json
+        try:
+            geom = _json.loads(geojson)
+        except Exception:
+            geom = None
+    return BoundaryResponse(
+        id=boundary.id,
+        osm_type=boundary.osm_type,
+        osm_id=boundary.osm_id,
+        name=boundary.name,
+        name_en=boundary.name_en,
+        name_ar=boundary.name_ar,
+        level=boundary.level,
+        geometry_geojson=geom,
+        created_at=boundary.created_at,
+        updated_at=boundary.updated_at,
+    )
+
 
 @router.get("", response_model=List[BoundaryResponse])
 async def list_boundaries(
-    level: str | None = None,
+    level: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(allow_access)
+    user: dict = Depends(allow_access),
 ):
-    query = select(Boundary)
+    stmt = _geojson_select
     if level:
-        query = query.where(Boundary.level == level)
-    query = query.order_by(Boundary.name)
-    result = await session.execute(query)
-    return result.scalars().all()
+        stmt = stmt.where(Boundary.level == level)
+    stmt = stmt.order_by(Boundary.name)
+    result = await session.execute(stmt)
+    return [_row_to_response(b, g) for b, g in result.all()]
 
 
 @router.get("/{boundary_id}", response_model=BoundaryResponse)
 async def get_boundary(
     boundary_id: str,
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(allow_access)
+    user: dict = Depends(allow_access),
 ):
-    result = await session.execute(select(Boundary).where(Boundary.id == boundary_id))
-    boundary = result.scalars().first()
-    if not boundary:
+    result = await session.execute(_geojson_select.where(Boundary.id == boundary_id))
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="Boundary not found")
-    return boundary
+    boundary, geojson = row
+    return _row_to_response(boundary, geojson)
 
 
 @router.post("", response_model=BoundaryResponse, status_code=201)
 async def create_boundary(
     payload: BoundaryCreate,
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_admin)
+    user: dict = Depends(require_admin),
 ):
     geom = shape(payload.geometry)
     ewkt = f"SRID=4326;{geom.wkt}"
@@ -63,7 +92,12 @@ async def create_boundary(
     await session.commit()
     await session.refresh(boundary)
     logger.info("Boundary created", id=str(boundary.id), name=boundary.name)
-    return boundary
+
+    result = await session.execute(
+        select(func.ST_AsGeoJSON(Boundary.geometry).label("g")).where(Boundary.id == boundary.id)
+    )
+    geojson_str = result.scalar()
+    return _row_to_response(boundary, geojson_str)
 
 
 @router.put("/{boundary_id}", response_model=BoundaryResponse)
@@ -71,14 +105,15 @@ async def update_boundary(
     boundary_id: str,
     payload: BoundaryUpdate,
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_admin)
+    user: dict = Depends(require_admin),
 ):
-    result = await session.execute(select(Boundary).where(Boundary.id == boundary_id))
-    boundary = result.scalars().first()
-    if not boundary:
+    result = await session.execute(_geojson_select.where(Boundary.id == boundary_id))
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="Boundary not found")
+    boundary, _ = row
 
-    update_data = payload.model_dump(exclude_unset=True)
+    update_data = payload.model_dump(exclude_unset=True, exclude_none=True)
     if "geometry" in update_data:
         geom = shape(update_data.pop("geometry"))
         update_data["geometry"] = f"SRID=4326;{geom.wkt}"
@@ -89,14 +124,19 @@ async def update_boundary(
     await session.commit()
     await session.refresh(boundary)
     logger.info("Boundary updated", id=str(boundary.id))
-    return boundary
+
+    result = await session.execute(
+        select(func.ST_AsGeoJSON(Boundary.geometry).label("g")).where(Boundary.id == boundary_id)
+    )
+    geojson_str = result.scalar()
+    return _row_to_response(boundary, geojson_str)
 
 
 @router.delete("/{boundary_id}", status_code=204)
 async def delete_boundary(
     boundary_id: str,
     session: AsyncSession = Depends(get_db),
-    user: dict = Depends(require_admin)
+    user: dict = Depends(require_admin),
 ):
     result = await session.execute(select(Boundary).where(Boundary.id == boundary_id))
     boundary = result.scalars().first()

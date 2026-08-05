@@ -32,9 +32,10 @@ from app.api.context import router as context_router
 from app.api.sites import router as sites_router, admin_router as sites_admin_router
 from app.api.boundaries import router as boundaries_router
 from app.api.restricted_zones import router as restricted_zones_router
+from app.api.locations import router as locations_router
 from app.services.rate_limit import limiter
 from app.admin.auth_backend import authentication_backend
-from app.admin.views import SiteAdmin, BoundaryAdmin, RestrictedZoneAdmin, AuditLogAdmin
+from app.admin.views import SiteAdmin, BoundaryAdmin, RestrictedZoneAdmin, AuditLogAdmin, LocationWarningAdmin, NearbyServiceAdmin
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
@@ -47,6 +48,8 @@ admin.add_view(SiteAdmin)
 admin.add_view(BoundaryAdmin)
 admin.add_view(RestrictedZoneAdmin)
 admin.add_view(AuditLogAdmin)
+admin.add_view(LocationWarningAdmin)
+admin.add_view(NearbyServiceAdmin)
 
 # Register SlowAPI rate limiter
 app.state.limiter = limiter
@@ -59,6 +62,7 @@ app.include_router(sites_router, prefix="/api/v1")
 app.include_router(sites_admin_router, prefix="/api/v1")
 app.include_router(boundaries_router, prefix="/api/v1")
 app.include_router(restricted_zones_router, prefix="/api/v1")
+app.include_router(locations_router, prefix="/api/v1")
 
 
 # ==========================================
@@ -88,7 +92,7 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logger.error("Readiness probe failed", error=str(e))
         raise HTTPException(
-            status_code=503, 
+            status_code=503,
             detail="Database connection is not ready"
         )
 
