@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.models.boundary import Boundary
 from app.models.site import Site
 from app.models.restricted_zone import RestrictedZone
-from app.schemas.context import ContextResponse, SiteResult, AreaAdvisory
+from app.schemas.context import ContextResponse, SiteResult, AreaAdvisory, ZoneGuidance
 
 logger = structlog.get_logger()
 
@@ -146,12 +146,36 @@ async def get_spatial_context(session: AsyncSession, lat: float, lon: float, rad
             reason=zone.reason
         ))
 
+    # 6. Non-exposing guidance for sensitive zones within the detection radius.
+    # Only the broad zone class + distance are exposed, never identity/location.
+    logger.debug("Finding nearby sensitive zones", lat=lat, lon=lon, radius=radius_meters)
+    guide_query = select(
+        RestrictedZone.zone_type,
+        func.ST_Distance(
+            cast(RestrictedZone.geometry, Geography),
+            cast(point_geom, Geography)
+        ).label("distance")
+    ).where(
+        func.ST_DWithin(
+            cast(RestrictedZone.geometry, Geography),
+            cast(point_geom, Geography),
+            radius_meters
+        )
+    ).order_by("distance").limit(5)
+
+    guide_result = await session.execute(guide_query)
+    nearby_zone_guidance = [
+        ZoneGuidance(zone_type=row.zone_type, distance_meters=round(row.distance, 2))
+        for row in guide_result
+    ]
+
     logger.info(
         "Spatial context generated",
         lat=lat, lon=lon,
         sites_found=len(nearby_sites),
         services_found=len(nearby_services),
-        advisories_found=len(area_advisories)
+        advisories_found=len(area_advisories),
+        zone_guidance_found=len(nearby_zone_guidance)
     )
     return ContextResponse(
         in_egypt=True,
@@ -159,5 +183,6 @@ async def get_spatial_context(session: AsyncSession, lat: float, lon: float, rad
         at_site=at_site,
         nearby_sites=nearby_sites,
         nearby_services=nearby_services,
-        area_advisories=area_advisories
+        area_advisories=area_advisories,
+        nearby_zone_guidance=nearby_zone_guidance
     )

@@ -18,6 +18,10 @@ class AreaAdvisory(BaseModel):
     source: str
     reason: Optional[str] = None
 
+class ZoneGuidance(BaseModel):
+    zone_type: str  # restricted, protected, caution
+    distance_meters: float
+
 class ContextResponse(BaseModel):
     in_egypt: bool
     governorate: Optional[str] = None
@@ -25,3 +29,4 @@ class ContextResponse(BaseModel):
     nearby_sites: List[SiteResult] = Field(default_factory=list, description="Tourist sites within the specified radius.")
     nearby_services: List[SiteResult] = Field(default_factory=list, description="Infrastructure/services within the specified radius (police, embassies, etc.).")
     area_advisories: List[AreaAdvisory] = Field(default_factory=list, description="Restricted zones, protected areas, or caution zones intersecting the user's location.")
+    nearby_zone_guidance: List[ZoneGuidance] = Field(default_factory=list, description="Non-exposing guidance for sensitive zones within the detection radius. Never reveals site identity.")
