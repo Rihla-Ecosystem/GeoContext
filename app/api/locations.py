@@ -505,7 +505,7 @@ async def import_geojson(
             categories=[props.get("category", "other")],
             category=props.get("category", "other"),
             site_type="tourist",
-            governororate=props.get("governorate", ""),
+            governorate=props.get("governorate", ""),
             city=props.get("city", ""),
             country=props.get("country", "Egypt"),
             address=props.get("address", ""),
