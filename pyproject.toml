@@ -25,6 +25,7 @@ dependencies = [
     "alembic>=1.12.0",
     "shapely>=2.0.0",
     "structlog>=23.1.0",
+    "httpx>=0.25.0",
     "asgi-correlation-id>=4.2.0"
 ]
 
