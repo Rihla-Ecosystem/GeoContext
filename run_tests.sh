@@ -111,50 +111,11 @@ r=$(curl -sSf "$BASE/api/v1/nearby-sites/by-governorate?governorate_name=Alexand
      -H "Authorization: Bearer $TOKEN" 2>&1 || true)
 check "Christian sites in Alexandria" "christian" "$r"
 
-# === 7. Submit Report ===
-echo ""
-echo "--- Reports: Submit ---"
-http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/v1/reports" \
-     -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"report_type":"hazard","description":"Broken glass on path","severity":"medium","lat":30.0444,"lon":31.2357}' 2>&1 || true)
-if [[ "$http_code" == "201" ]]; then
-    echo "  ✅ report created (HTTP 201)"
-    pass=$((pass + 1))
-elif [[ "$http_code" == "429" ]]; then
-    echo "  ⚠️ report rate-limited (HTTP 429 — expected if tested recently)"
-    pass=$((pass + 1))
-else
-    echo "  ❌ report submission returned HTTP $http_code"
-    fail=$((fail + 1))
-fi
-
-# === 8. Auth Required (no token) ===
+# === 7. Auth Required (no token) ===
 echo ""
 echo "--- Auth: Missing token ---"
 r=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/v1/context?lat=30.0&lon=31.0" 2>&1 || true)
 check "401 without token" "401" "$r"
-
-# === 9. Rate Limit (POST /reports — 5/min) ===
-echo ""
-echo "--- Rate Limit: /reports (5/min) ---"
-hits=0
-for i in $(seq 1 6); do
-    code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/api/v1/reports" \
-         -H "Authorization: Bearer $TOKEN" \
-         -H "Content-Type: application/json" \
-         -d "{\"report_type\":\"hazard\",\"description\":\"rate test $i\",\"lat\":30.0,\"lon\":31.0}" 2>&1 || true)
-    if [[ "$code" == "429" ]]; then
-        hits=$((hits + 1))
-    fi
-done
-if [[ "$hits" -ge 1 ]]; then
-    echo "  ✅ rate limiter triggered ($hits requests got 429)"
-    pass=$((pass + 1))
-else
-    echo "  ❌ rate limiter not triggered (0 requests got 429)"
-    fail=$((fail + 1))
-fi
 
 echo ""
 echo "=============================================="

@@ -51,12 +51,6 @@ class Settings(BaseSettings):
         description="List of allowed CORS origins",
     )
 
-    # Rate limits
-    RATE_LIMIT_GLOBAL: str = Field(
-        default="100/minute",
-        description="Global rate limit string for slowapi",
-    )
-
     # Business Logic Defaults
     DEFAULT_DETECTION_RADIUS: float = Field(
         default=1000.0,

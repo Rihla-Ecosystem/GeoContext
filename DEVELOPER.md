@@ -53,7 +53,7 @@ docker exec geocontext_db pg_isready -U postgres
 .venv/bin/alembic upgrade head
 ```
 
-This creates all tables: `boundaries`, `sites`, `restricted_zones`, `reports`, `audit_logs`.
+This creates all tables: `boundaries`, `sites`, `restricted_zones`, `audit_logs`.
 
 ### 4. Load Spatial Data
 
@@ -182,22 +182,6 @@ Category-filterable nearby sites. Same radius rules as `/context`.
 
 Find all sites within a governorate polygon by name.
 
-### `POST /api/v1/reports`
-
-Submit a public safety/data-correction report. Rate-limited to 5/minute/IP. Always created with `status: "pending"`.
-
-**Request body:**
-```json
-{
-  "report_type": "hazard",
-  "description": "Broken glass on the path",
-  "severity": "medium",
-  "lat": 30.0444,
-  "lon": 31.2357,
-  "related_site_id": null
-}
-```
-
 ### Admin Panel
 
 Access at `http://localhost:8000/admin`. Login options, in order:
@@ -212,7 +196,6 @@ Access at `http://localhost:8000/admin`. Login options, in order:
 | SiteAdmin | `sites` | Search by name, filter by category |
 | BoundaryAdmin | `boundaries` | Read-only |
 | RestrictedZoneAdmin | `restricted_zones` | Filter by subtype/source |
-| ReportAdmin | `reports` | Verify/reject reports |
 | AuditLogAdmin | `audit_logs` | Read-only |
 
 All admins auto-log changes to `audit_logs` via `on_model_change` / `on_model_delete` hooks.
@@ -251,25 +234,6 @@ curl -s "http://localhost:8000/api/v1/nearby-sites/by-governorate?governorate_na
   -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
 ```
 
-**5. Submit a report:**
-```bash
-curl -s -X POST "http://localhost:8000/api/v1/reports" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"report_type":"hazard","description":"Broken glass on the path","severity":"medium","lat":30.0444,"lon":31.2357}'
-```
-
-**6. Rate limit test (submit 6 reports in quick succession — 6th fails with 429):**
-```bash
-for i in $(seq 1 6); do
-  echo "Request $i:"
-  curl -s -X POST "http://localhost:8000/api/v1/reports" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"report_type\":\"hazard\",\"description\":\"test $i\",\"lat\":30.0,\"lon\":31.0}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'  status={d.get(\"status\",\"ERROR\")}')"
-done
-```
-
 ## Running Automated Tests
 
 ```bash
@@ -289,7 +253,6 @@ Test infrastructure:
 - **`SessionMiddleware` secret hardcoded** → `app/main.py:40` — should be an env var
 - **No `source` column on `sites` table** — tracked in schema but not implemented
 - **No `detection_radius_m` per site** — config-driven default only
-- **Rate limiting only on `/reports`** — `/context` and `/nearby-sites` are not rate-limited
 - **No pagination** on list endpoints
 
 ## Data Model
@@ -298,7 +261,6 @@ Test infrastructure:
 boundaries (id, osm_type, osm_id, name, name_en, name_ar, level, geometry)
 sites     (id, osm_type, osm_id, name, name_en, name_ar, categories[], details, geometry)
 restricted_zones (id, osm_type, osm_id, name, subtype, source, reason, geometry)
-reports   (id, user_id, report_type, description, severity, related_site_id, status, admin_notes, geometry)
 audit_logs (id, admin_identifier, action, target_type, target_id, details, created_at)
 ```
 
@@ -325,16 +287,13 @@ app/
 │   ├── boundary.py
 │   ├── site.py
 │   ├── restricted_zone.py
-│   ├── report.py
 │   └── audit_log.py
 ├── schemas/         # Pydantic request/response schemas
 │   ├── context.py
 │   ├── site.py
-│   ├── report.py
 │   └── auth.py
 ├── services/        # Business logic
 │   ├── spatial.py      # Core spatial context query logic
-│   ├── rate_limit.py   # slowapi limiter instance
 │   └── audit.py        # (empty - logging in admin/views.py)
 └── main.py          # FastAPI app, lifespan, admin, routers
 data/                # GeoJSON source files (7 files)

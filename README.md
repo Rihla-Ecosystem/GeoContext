@@ -44,7 +44,6 @@ See [DEVELOPER.md](DEVELOPER.md) for full documentation including:
 | `ADMIN_BOOTSTRAP_SECRET` | No | `change-me-in-production` | Dev bypass for admin panel |
 | `ENVIRONMENT` | No | `local` | `local` = colorized logs, `production` = JSON logs |
 | `BACKEND_CORS_ORIGINS` | No | `["http://localhost:3000", "http://localhost:8000"]` | Allowed CORS origins |
-| `RATE_LIMIT_GLOBAL` | No | `100/minute` | Global slowapi limit |
 | `DEFAULT_DETECTION_RADIUS` | No | `1000.0` | Default proximity radius in meters |
 | `MAX_DETECTION_RADIUS` | No | `5000.0` | Maximum allowed radius |
 | `AT_SITE_RADIUS` | No | `50.0` | Radius to consider user "at" a site |

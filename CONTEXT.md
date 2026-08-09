@@ -24,15 +24,16 @@
 
 ## Key facts
 - Env: `DATABASE_URL`, `SUPABASE_JWT_SECRET`, `ADMIN_BOOTSTRAP_SECRET`, radius knobs (`DEFAULT/MAX_DETECTION_RADIUS`, `AT_SITE_RADIUS`).
-- DB: 5 tables — boundaries, sites, restricted_zones, reports, audit_logs.
+- DB: 4 tables — boundaries, sites, restricted_zones, audit_logs.
 - Developer guide: `DEVELOPER.md`.
 
 ## Gotchas
-- `reports` route exists but docs are inconsistent on it (platform doc §4 lists it; newer DEVELOPER.md too).
 - `ADMIN_BOOTSTRAP_SECRET` dev bypass is a known tech-debt (TODO remove).
 - Session middleware secret hardcoded in `app/main.py` (should be env).
+- `reports` feature REMOVED for good (dropped migration `8f08c5a1be3f`); user incident reports now live in Core-Server (`/api/reports`).
 
 ## Changelog
+- 2026-08-09: Dead `reports` leftovers removed — Report tab + submit JS from `app/static/index.html`, `POST /api/v1/reports` & rate-limit docs from `DEVELOPER.md`/`run_tests.sh`, inert slowapi limiter (`app/services/rate_limit.py` deleted, `app.main.py`/`config.py`/`.env.example`/`README` cleaned, `slowapi` dropped from `pyproject.toml`). `import app.main` OK. Incident reports now live in Core as decided.
 - 2026-08-08: CLOUD DB MILESTONE — branch `feat/cloud-db`. Wired `BACKEND_CORS_ORIGINS` into CORS middleware (`app/main.py`) instead of hardcoded list. Alembic `upgrade head` applied all migrations to Supabase `rihla-geo` (`lzplpwsuyjqctlfefgxn`, pooler aws-1-eu-west-1); PostGIS pre-enabled by Supabase (in `extensions` schema — exclude `spatial_ref_sys` from dumps). Data restored: `sites=4450`, `boundaries=29`, `restricted_zones=3364` (match local). `.env.cloud` (gitignored) holds asyncpg URL. Live validation on :8001: /readyz ready, /nearby-sites, /context, /restricted-zones all return real spatial results. Commit `37c2f33`.
 - 2026-08-07: Created `AGENTS.md` + `CONTEXT.md`. Not started this session.
 - 2026-08-07: Merged origin/main + alembic upgrade (new tables). Tests 2/2. E2E: `/api/v1/context`, `/api/v1/locations` (new, auth), internal-key service auth all OK.

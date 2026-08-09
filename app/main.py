@@ -23,8 +23,6 @@ async def lifespan(app: FastAPI):
     await db_manager.disconnect()
 
 
-from slowapi.errors import RateLimitExceeded
-from slowapi import _rate_limit_exceeded_handler
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin
@@ -39,7 +37,6 @@ from app.api.locations import router as locations_router
 
 from app.api.health import router as health_router
 
-from app.services.rate_limit import limiter
 from app.admin.auth_backend import authentication_backend
 from app.admin.views import SiteAdmin, BoundaryAdmin, RestrictedZoneAdmin, AuditLogAdmin, LocationWarningAdmin, NearbyServiceAdmin
 
@@ -65,10 +62,6 @@ admin.add_view(RestrictedZoneAdmin)
 admin.add_view(AuditLogAdmin)
 admin.add_view(LocationWarningAdmin)
 admin.add_view(NearbyServiceAdmin)
-
-# Register SlowAPI rate limiter
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 setup_exception_handlers(app)
 

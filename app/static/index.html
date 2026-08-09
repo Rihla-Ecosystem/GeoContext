@@ -70,13 +70,6 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 .controls .sep { width: 1px; height: 24px; background: var(--surface2); margin: 0 4px; }
 .controls .btn-icon { padding: 5px 10px; font-size: 12px; }
 
-/* Report form */
-.report-form { display: none; }
-.report-form.open { display: block; }
-.report-form-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.report-form-row select, .report-form-row input { flex: 1; min-width: 100px; }
-.report-form textarea { width: 100%; background: var(--bg); border: 1px solid var(--surface2); color: var(--text); padding: 6px 8px; border-radius: var(--radius); font-size: 13px; resize: vertical; min-height: 50px; font-family: inherit; }
-
 /* Map controls overlay */
 .map-overlay { position: absolute; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 4px; }
 .map-overlay button { background: var(--surface); color: var(--text); border: 1px solid var(--surface2); padding: 6px 12px; border-radius: var(--radius); cursor: pointer; font-size: 12px; }
@@ -113,7 +106,6 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
       <div class="sidebar-tab active" data-tab="context">Context</div>
       <div class="sidebar-tab" data-tab="sites">Sites</div>
       <div class="sidebar-tab" data-tab="advisories">Advisories</div>
-      <div class="sidebar-tab" data-tab="report">Report</div>
     </div>
     <div class="sidebar-content" id="sidebarContent">
       <div class="empty-state">Click "Get Context" or select a location on the map</div>
@@ -474,8 +466,6 @@ function switchTab(tab) {
     el.innerHTML = `<div class="empty-state">Use "Nearby Sites" or "By Gov" to explore</div>`;
   } else if (tab === 'advisories') {
     renderAdvisories();
-  } else if (tab === 'report') {
-    renderReportForm();
   }
 }
 
@@ -500,57 +490,6 @@ function renderAdvisories() {
   });
   html += '</div>';
   el.innerHTML = html;
-}
-
-function renderReportForm() {
-  const el = document.getElementById('sidebarContent');
-  el.innerHTML = `
-    <div class="result-section">
-      <h3>📝 Submit Report</h3>
-      <div class="report-form open">
-        <div class="report-form-row">
-          <select id="reportType">
-            <option value="hazard">Hazard</option>
-            <option value="inaccuracy">Inaccuracy</option>
-            <option value="missing_data">Missing Data</option>
-          </select>
-          <select id="reportSeverity">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
-        <textarea id="reportDesc" placeholder="Describe the issue..."></textarea>
-        <div class="report-form-row" style="margin-top:8px">
-          <input type="number" id="reportLat" step="any" placeholder="Lat" value="${currentLat.toFixed(4)}" />
-          <input type="number" id="reportLon" step="any" placeholder="Lon" value="${currentLon.toFixed(4)}" />
-        </div>
-        <button class="btn-primary" id="submitReportBtn" style="margin-top:8px;width:100%">Submit Report</button>
-        <div id="reportResult" style="margin-top:8px"></div>
-      </div>
-    </div>
-  `;
-  document.getElementById('submitReportBtn').addEventListener('click', submitReport);
-}
-
-async function submitReport() {
-  const body = {
-    report_type: document.getElementById('reportType').value,
-    severity: document.getElementById('reportSeverity').value,
-    description: document.getElementById('reportDesc').value.trim(),
-    lat: parseFloat(document.getElementById('reportLat').value),
-    lon: parseFloat(document.getElementById('reportLon').value),
-  };
-  if (!body.description) { document.getElementById('reportResult').innerHTML = '<span style="color:var(--red)">Description is required</span>'; return; }
-  const data = await apiCall('POST', '/api/v1/reports', body);
-  const el = document.getElementById('reportResult');
-  if (data) {
-    el.innerHTML = `<span style="color:var(--green)">✅ Report submitted (${data.id.slice(0,8)}…) — status: ${data.status}</span>`;
-    document.getElementById('reportDesc').value = '';
-  } else {
-    el.innerHTML = `<span style="color:var(--red)">❌ Failed to submit report</span>`;
-  }
 }
 
 // ============================================================
