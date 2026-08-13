@@ -57,7 +57,7 @@ class Settings(BaseSettings):
         description="Default detection radius in meters for nearby sites",
     )
     MAX_DETECTION_RADIUS: float = Field(
-        default=5000.0,
+        default=1000000.0,
         description="Maximum allowed detection radius in meters",
     )
     AT_SITE_RADIUS: float = Field(
