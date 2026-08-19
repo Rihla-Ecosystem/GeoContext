@@ -5,8 +5,8 @@ import math
 
 from app.core.config import settings
 from app.core.db import get_db
-from app.schemas.context import ContextResponse
-from app.services.spatial import get_spatial_context
+from app.schemas.context import ContextResponse, ZonesResponse
+from app.services.spatial import get_spatial_context, get_nearby_zones
 
 from app.core.security import allow_access
 
@@ -39,3 +39,24 @@ async def fetch_spatial_context(
         raise HTTPException(status_code=400, detail="Radius cannot be negative")
 
     return await get_spatial_context(session, lat, lon, effective_radius)
+
+
+@router.get("/zones", response_model=ZonesResponse)
+async def fetch_nearby_zones(
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude of the location"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude of the location"),
+    radius: Optional[float] = Query(None, description="Detection radius in meters for zone polygons"),
+    session: AsyncSession = Depends(get_db),
+    user: dict = Depends(allow_access)
+):
+    """
+    Returns anonymous polygons for sensitive zones within radius for map
+    rendering. Identity fields (name, reason, subtype, source) are never
+    exposed — only zone class, severity, and geometry.
+    """
+    effective_radius = radius if radius is not None else settings.DEFAULT_DETECTION_RADIUS
+    effective_radius = min(effective_radius, settings.MAX_DETECTION_RADIUS)
+    if effective_radius < 0:
+        raise HTTPException(status_code=400, detail="Radius cannot be negative")
+
+    return await get_nearby_zones(session, lat, lon, effective_radius)

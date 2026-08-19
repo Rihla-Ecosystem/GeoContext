@@ -1,3 +1,5 @@
+import json
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, cast
@@ -7,7 +9,13 @@ from app.core.config import settings
 from app.models.boundary import Boundary
 from app.models.site import Site
 from app.models.restricted_zone import RestrictedZone
-from app.schemas.context import ContextResponse, SiteResult, AreaAdvisory, ZoneGuidance
+from app.schemas.context import ContextResponse, SiteResult, AreaAdvisory, ZoneGuidance, ZonesResponse, ZonePolygon
+
+ZONE_SEVERITY = {
+    "restricted": "critical",
+    "caution": "warning",
+    "protected": "info",
+}
 
 logger = structlog.get_logger()
 
@@ -138,12 +146,10 @@ async def get_spatial_context(session: AsyncSession, lat: float, lon: float, rad
 
     area_advisories = []
     for zone in zone_result.scalars().all():
+        # Identity deliberately stripped: only class + subtype are exposed.
         area_advisories.append(AreaAdvisory(
             advisory_type=zone.zone_type,
-            name=zone.name,
             subtype=zone.subtype,
-            source=zone.source,
-            reason=zone.reason
         ))
 
     # 6. Non-exposing guidance for sensitive zones within the detection radius.
@@ -185,4 +191,54 @@ async def get_spatial_context(session: AsyncSession, lat: float, lon: float, rad
         nearby_services=nearby_services,
         area_advisories=area_advisories,
         nearby_zone_guidance=nearby_zone_guidance
+    )
+
+
+async def get_nearby_zones(
+    session: AsyncSession,
+    lat: float,
+    lon: float,
+    radius_meters: float,
+) -> ZonesResponse:
+    """
+    Returns anonymous polygons for sensitive zones within radius. Identity
+    fields (name, reason, subtype, source, osm_*) are never exposed — only the
+    zone class, derived severity, and the geometry needed to render the map
+    overlay. Geometry is simplified to keep the payload map-friendly.
+    """
+    point_geom = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+
+    zone_query = select(
+        RestrictedZone.zone_type,
+        func.ST_AsGeoJSON(
+            func.ST_SimplifyPreserveTopology(RestrictedZone.geometry, 0.0005)
+        ).label("geometry_geojson"),
+    ).where(
+        func.ST_DWithin(
+            cast(RestrictedZone.geometry, Geography),
+            cast(point_geom, Geography),
+            radius_meters
+        )
+    )
+
+    result = await session.execute(zone_query)
+    zones: list[ZonePolygon] = []
+    for zone_type, geometry_geojson in result.all():
+        if not geometry_geojson:
+            continue
+        try:
+            geometry = json.loads(geometry_geojson)
+        except Exception:
+            continue
+        zones.append(ZonePolygon(
+            zone_type=str(zone_type),
+            severity=ZONE_SEVERITY.get(str(zone_type), "warning"),
+            geometry=geometry,
+        ))
+
+    return ZonesResponse(
+        lat=lat,
+        lon=lon,
+        radius_meters=radius_meters,
+        zones=zones,
     )
